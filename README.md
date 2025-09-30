@@ -19,9 +19,11 @@
 2. You can use environment variables to control the ip address and port that the server listens on:
     1. GRPC_SERVER_IP (default is 0.0.0.0 or all ip addresses)
     2. GRPC_SERVER_PORT (default is 50051)
+    3. GRPC_SERVICE_TYPE ["unary", "bidirectional"] (default is unary)
 3. You can also override defaults and environment variables using the command line arguments:
     1. --ip - IP address to bind to
     2. --port - Port to bind to
+    3. --type" - ["unary", "bidirectional"]
 
 ## Client 
 - Client accepts 1..n ip addresses and will attempt to communicate with each of them

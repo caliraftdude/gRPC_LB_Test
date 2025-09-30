@@ -11,7 +11,8 @@
             "request": "launch",
             "program": "${file}",
             "args": ["--targets", "localhost",
-                     "--repeat", "5"],
+                     "--repeat", "5",
+                     "--service-type", "bidirectional",],
             "console": "integratedTerminal"
         }
     ]

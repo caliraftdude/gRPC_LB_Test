@@ -8,6 +8,8 @@ from colorama import Fore, Style, init
 
 import unary_pb2_grpc as pb2_grpc
 import unary_pb2 as pb2
+import bidirectional_pb2_grpc as bidirectional_pb2_grpc
+import bidirectional_pb2 as bidirectional_pb2
 
 
 class UnaryClient:
@@ -27,6 +29,45 @@ class UnaryClient:
         """
         request = pb2.Message(message=message)
         return self.stub.GetServerResponse(request)
+    
+
+class BidirectionalClient:
+    """
+    Client for gRPC Bidirectional functionality
+    """
+
+    def __init__(self, host, port=50051):
+        self.host = host
+        self.server_port = port
+        self.channel = grpc.insecure_channel(f'{self.host}:{self.server_port}')
+        self.stub = bidirectional_pb2_grpc.BidirectionalStub(self.channel)
+
+    def run(self):
+        """
+        Client function to call the rpc for GetServerResponse
+        """
+        responses = self.stub.GetServerResponse(self.generate_messages())
+        for response in responses:
+            log(f"Hello from the server received your {response.message}\n", color=Fore.GREEN)
+
+    def generate_messages(self):
+        messages = [
+            self.make_message("First message"),
+            self.make_message("Second message"),
+            self.make_message("Third message"),
+            self.make_message("Fourth message"),
+            self.make_message("Fifth message"),
+        ]
+        for msg in messages:
+            #print("Hello Server Sending you the %s" % msg.message)
+            log(f"Hello Server, sending you the {msg.message}\n", color=Fore.YELLOW)
+            yield msg
+
+    def make_message(self, message):
+        return bidirectional_pb2.Message(
+            message=message
+        )
+
 
 def log(message, color=Fore.WHITE):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -47,6 +88,8 @@ def get_cmd_args():
                         help="Minimum random delay in seconds (used if delay-mode is 'random')")
     parser.add_argument("--random-max", type=float, default=2.0,
                         help="Maximum random delay in seconds (used if delay-mode is 'random')")
+    parser.add_argument("--service-type", choices=["unary", "bidirectional"], default="unary",
+                        help="Type of gRPC service to use: 'unary' or 'bidirectional'")
     args = parser.parse_args()
 
     # Validate delay values
@@ -73,9 +116,17 @@ def main():
                 log(f"Trying to connect to {target}...")
 
                 try:
-                    client = UnaryClient(target)
-                    response = client.get_url(message)
-                    log(f"Response from {target}: {response}", color=Fore.GREEN)
+                    if args.service_type == "unary":
+                        client = UnaryClient(target)
+                        response = client.get_url(message)
+                        log(f"Response from {target}: {response}", color=Fore.GREEN)
+                    elif args.service_type == "bidirectional":
+                        client = BidirectionalClient(target)
+                        client.run()
+                        log(f"Completed bidirectional communication with {target}", color=Fore.GREEN)
+                    else:
+                        log(f"Unknown service type: {args.service_type}", color=Fore.RED)
+
                 except Exception as e:
                     log(f"Failed to connect to {target}: {e}", color=Fore.RED)
 
@@ -85,6 +136,7 @@ def main():
                     delay = random.uniform(args.random_min, args.random_max)
                     log(f"Sleeping for {delay:.2f} seconds", color=Fore.YELLOW)
                     time.sleep(delay)
+                    
             if args.repeat > 0 and iteration >= args.repeat:
                 break
     except KeyboardInterrupt:
