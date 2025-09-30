@@ -22,7 +22,7 @@ class UnaryService(pb2_grpc.UnaryServicer):
         hostname, peer_ip = get_server_identity(context)
 
         # create the response message
-        message = f"Hello from {hostname} at {peer_ip}!\nreceived your message: {message}"
+        result = f"Hello from {hostname} at {peer_ip}!\nreceived your message: {message}"
         result = {'message': result, 'received': True}
 
         # Print to console
