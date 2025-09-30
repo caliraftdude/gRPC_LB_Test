@@ -10,7 +10,8 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
-            "args": ["localhost"],
+            "args": ["--targets", "localhost",
+                     "--repeat", "5"],
             "console": "integratedTerminal"
         }
     ]
