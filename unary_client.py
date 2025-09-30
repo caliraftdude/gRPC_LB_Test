@@ -17,11 +17,36 @@ class UnaryClient:
     Client for gRPC functionality
     """
 
-    def __init__(self, host, port=50051):
+    def __init__(self, host, secure=False, port=50051):
         self.host = host
         self.server_port = port
-        self.channel = grpc.insecure_channel(f'{self.host}:{self.server_port}')
+        self.channel = self._set_up_channel(secure)
         self.stub = pb2_grpc.UnaryStub(self.channel)
+
+    def _set_up_channel(self, secure=False):
+        if secure:
+            try:
+                cert_path = "server.crt"
+
+                # Load the trusted server certificate (CA certificate)
+                with open(cert_path, 'rb') as f:
+                    trusted_certs = f.read()
+            
+                # Create SSL credentials
+                credentials = grpc.ssl_channel_credentials(root_certificates=trusted_certs)
+
+                # Create a secure channel
+                return grpc.secure_channel(f'{self.host}:{self.server_port}', credentials)
+
+            except FileNotFoundError:
+                print(f"The file {cert_path} was not found.")
+            except PermissionError:
+                print(f"You do not have permission to read {cert_path}.")
+            except OSError as e:
+                print(f"An unexpected OS error occurred: {e}")
+
+        else:
+            return grpc.insecure_channel(f'{self.host}:{self.server_port}')
 
     def get_url(self, message):
         """
@@ -36,11 +61,36 @@ class BidirectionalClient:
     Client for gRPC Bidirectional functionality
     """
 
-    def __init__(self, host, port=50051):
+    def __init__(self, host, secure=False, port=50051):
         self.host = host
         self.server_port = port
-        self.channel = grpc.insecure_channel(f'{self.host}:{self.server_port}')
+        self.channel = self.channel = self._set_up_channel(secure)
         self.stub = bidirectional_pb2_grpc.BidirectionalStub(self.channel)
+
+    def _set_up_channel(self, secure=False):
+        if secure:
+            try:
+                cert_path = "server.crt"
+
+                # Load the trusted server certificate (CA certificate)
+                with open(cert_path, 'rb') as f:
+                    trusted_certs = f.read()
+            
+                # Create SSL credentials
+                credentials = grpc.ssl_channel_credentials(root_certificates=trusted_certs)
+
+                # Create a secure channel
+                return grpc.secure_channel(f'{self.host}:{self.server_port}', credentials)
+
+            except FileNotFoundError:
+                print(f"The file {cert_path} was not found.")
+            except PermissionError:
+                print(f"You do not have permission to read {cert_path}.")
+            except OSError as e:
+                print(f"An unexpected OS error occurred: {e}")
+
+        else:
+            return grpc.insecure_channel(f'{self.host}:{self.server_port}')
 
     def run(self):
         """
@@ -88,8 +138,10 @@ def get_cmd_args():
                         help="Minimum random delay in seconds (used if delay-mode is 'random')")
     parser.add_argument("--random-max", type=float, default=2.0,
                         help="Maximum random delay in seconds (used if delay-mode is 'random')")
-    parser.add_argument("--service-type", choices=["unary", "bidirectional"], default="unary",
+    parser.add_argument("--type", choices=["unary", "bidirectional"], default="unary",
                         help="Type of gRPC service to use: 'unary' or 'bidirectional'")
+    parser.add_argument("--secure", action="store_true", required=False, 
+                        help="Use secure gRPC channel with SSL/TLS")
     args = parser.parse_args()
 
     # Validate delay values
@@ -112,16 +164,17 @@ def main():
         while True:
             iteration += 1
             log(f"Starting iteration {iteration}", color=Fore.CYAN)
+
             for target in targets:
                 log(f"Trying to connect to {target}...")
 
                 try:
-                    if args.service_type == "unary":
-                        client = UnaryClient(target)
+                    if args.type == "unary":
+                        client = UnaryClient(target, args.secure)
                         response = client.get_url(message)
                         log(f"Response from {target}: {response}", color=Fore.GREEN)
-                    elif args.service_type == "bidirectional":
-                        client = BidirectionalClient(target)
+                    elif args.type == "bidirectional":
+                        client = BidirectionalClient(target, args.secure)
                         client.run()
                         log(f"Completed bidirectional communication with {target}", color=Fore.GREEN)
                     else:
@@ -136,7 +189,7 @@ def main():
                     delay = random.uniform(args.random_min, args.random_max)
                     log(f"Sleeping for {delay:.2f} seconds", color=Fore.YELLOW)
                     time.sleep(delay)
-                    
+
             if args.repeat > 0 and iteration >= args.repeat:
                 break
     except KeyboardInterrupt:

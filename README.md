@@ -27,3 +27,6 @@
 
 ## Client 
 - Client accepts 1..n ip addresses and will attempt to communicate with each of them
+
+### references
+1. https://www.velotio.com/engineering-blog/grpc-implementation-using-python

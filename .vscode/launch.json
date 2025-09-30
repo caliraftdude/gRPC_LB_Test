@@ -12,7 +12,17 @@
             "program": "${file}",
             "args": ["--targets", "localhost",
                      "--repeat", "5",
-                     "--service-type", "bidirectional",],
+                     "--type", "bidirectional",
+                     "--secure",],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Server Debug",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "unary_server.py",
+            "args": ["--type", "bidirectional",
+                     "--secure",],
             "console": "integratedTerminal"
         }
     ]
