@@ -12,7 +12,7 @@
             "program": "${file}",
             "args": ["--targets", "localhost",
                      "--repeat", "5",
-                     "--type", "bidirectional",
+                     "--type", "unary",
                      "--secure",],
             "console": "integratedTerminal"
         },
