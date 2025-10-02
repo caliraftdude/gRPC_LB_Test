@@ -6,6 +6,7 @@ import random
 from colorama import Fore
 from typing import Any
 
+
 from logger import ColorLogger
 from config import ClientConfig
 from grpc_api import pb2, pb2_grpc, bidir, pb2_grpc_bidir
@@ -23,7 +24,7 @@ class BaseClient:
         self.channel = self._get_channel(secure)
 
         
-    def _get_channel(self, secure:bool=False):
+    def _get_channel(self, secure:bool=False) -> grpc.Channel:
         if secure:
             try:
                 # Load the trusted server certificate (CA certificate)
