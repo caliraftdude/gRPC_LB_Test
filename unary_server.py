@@ -1,18 +1,18 @@
 import grpc
-import os
-import argparse
 import socket
+import argparse
 from concurrent import futures
+from colorama import Fore
 
-import time
+from logger import ColorLogger
+from config import ServerConfig
+from grpc_api import pb2, pb2_grpc, pb2_grpc_bidir
 
-import unary_pb2_grpc as pb2_grpc
-import unary_pb2 as pb2
-import bidirectional_pb2_grpc as bidirectional_pb2_grpc
+# Get Logging
+logger = ColorLogger("gRPC Server")
 
 
-
-class BidirectionalService(bidirectional_pb2_grpc.BidirectionalServicer):
+class BidirectionalService(pb2_grpc_bidir.BidirectionalServicer):
 
     def GetServerResponse(self, request_iterator, context):
         for message in request_iterator:
@@ -34,7 +34,7 @@ class UnaryService(pb2_grpc.UnaryServicer):
         result = {'message': result, 'received': True}
 
         # Print to console
-        print(f"Processed request from {peer_ip} on {hostname}: {message}")
+        logger.log(f"Processed request from {peer_ip} on {hostname}: {message}", color=Fore.GREEN)
 
         # Send it
         return pb2.MessageResponse(**result)
@@ -47,45 +47,30 @@ def get_server_identity(request_context):
     return hostname, server_ip
 
 
-def get_server_config():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--ip", type=str, help="IP address to bind to")
-    parser.add_argument("--port", type=int, help="Port to bind to")
-    parser.add_argument("--type", type=str, choices=["unary", "bidirectional"], default="unary", help="Type of gRPC service to run: 'unary' or 'bidirectional'")
-    parser.add_argument("--secure", action="store_true", required=False, help="Use secure gRPC channel with SSL/TLS")
-    args = parser.parse_args()
-
-    ip = args.ip or os.getenv("GRPC_SERVER_IP", "0.0.0.0")
-    port = args.port or int(os.getenv("GRPC_SERVER_PORT", "50051"))
-    service_type = args.type or os.getenv("GRPC_SERVICE_TYPE", "unary").lower()
-
-    return ip, port, service_type, args
-
-
-def serve():
-    # Get server config from env vars or cmd args
-    #ip, port, service_type = get_server_config()
-    ip, port, service_type, args = get_server_config()
+def main():
+    
+    sc = ServerConfig( argparse.ArgumentParser(description="gRPC Server"), logger )
+    ip, port, service_type = sc.get_args()
 
     # Setup server and thread pool
     if service_type == "unary":
-        print("Starting Unary gRPC Server...")
+        logger.info("Starting Unary gRPC Server...")
         server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
         pb2_grpc.add_UnaryServicer_to_server(UnaryService(), server)
 
     elif service_type == "bidirectional":
-        print("Starting Bidirectional gRPC Server...")
+        logger.info("Starting Bidirectional gRPC Server...")
         server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-        bidirectional_pb2_grpc.add_BidirectionalServicer_to_server(BidirectionalService(), server)
+        pb2_grpc_bidir.add_BidirectionalServicer_to_server(BidirectionalService(), server)
 
     else:
         raise ValueError("Invalid service type. Choose 'unary' or 'bidirectional'.")
 
     # Bind to address and port - use env vars, cmd args or defaults
-    if args.secure:
+    if sc.args.secure:
         try:
-            cert_path = "server.crt"
-            key_path = "server.key" 
+            cert_path = "./certs/server.crt"
+            key_path = "./certs/server.key" 
             
             # Load server private key and certificate
             with open(key_path, 'rb') as f:
@@ -98,31 +83,31 @@ def serve():
 
             # Create a secure server
             server.add_secure_port(f"{ip}:{port}", server_credentials)
-            print(f"Created secure server on {ip}:{port}...")
+            logger.info(f"Created secure server on {ip}:{port}...")
 
         except FileNotFoundError:
-            print(f"The file {cert_path} was not found.")
+            logger.error(f"The file {cert_path} was not found.")
         except PermissionError:
-            print(f"You do not have permission to read {cert_path}.")
+            logger.error(f"You do not have permission to read {cert_path}.")
         except OSError as e:
-            print(f"An unexpected OS error occurred: {e}")
+            logger.error(f"An unexpected OS error occurred: {e}")
         
     else:
         server.add_insecure_port(f"{ip}:{port}")
-        print(f"Created insecure server on {ip}:{port}...")
+        logger.info(f"Created insecure server on {ip}:{port}...")
  
     # Start the server
     server.start()
-    print("Server started. Listening for requests...")
+    logger.info("Server started. Listening for requests...")
 
     # Keep the server running unless ctrl-c is pressed
     try:
         server.wait_for_termination()
     except KeyboardInterrupt:
-        print("Server shutting down...")
+        logger.info("Server shutting down...")
 
 
 if __name__ == '__main__':
-    serve()
+    main()
 
 

@@ -1,16 +1,15 @@
-import sys
 import grpc
 import argparse
 import time
 import random
-from datetime import datetime
-from colorama import Fore, Style, init
+from colorama import Fore
 
-import unary_pb2_grpc as pb2_grpc
-import unary_pb2 as pb2
-import bidirectional_pb2_grpc as bidirectional_pb2_grpc
-import bidirectional_pb2 as bidirectional_pb2
+from logger import ColorLogger
+from config import ClientConfig
+from grpc_api import pb2, pb2_grpc, bidir, pb2_grpc_bidir
 
+# Get logging
+logger = ColorLogger("gRPC Client")
 
 class UnaryClient:
     """
@@ -26,7 +25,7 @@ class UnaryClient:
     def _set_up_channel(self, secure=False):
         if secure:
             try:
-                cert_path = "server.crt"
+                cert_path = "./certs/server.crt"
 
                 # Load the trusted server certificate (CA certificate)
                 with open(cert_path, 'rb') as f:
@@ -39,11 +38,11 @@ class UnaryClient:
                 return grpc.secure_channel(f'{self.host}:{self.server_port}', credentials)
 
             except FileNotFoundError:
-                print(f"The file {cert_path} was not found.")
+                logger.error(f"The file {cert_path} was not found.")
             except PermissionError:
-                print(f"You do not have permission to read {cert_path}.")
+                logger.error(f"You do not have permission to read {cert_path}.")
             except OSError as e:
-                print(f"An unexpected OS error occurred: {e}")
+                logger.error(f"An unexpected OS error occurred: {e}")
 
         else:
             return grpc.insecure_channel(f'{self.host}:{self.server_port}')
@@ -65,12 +64,12 @@ class BidirectionalClient:
         self.host = host
         self.server_port = port
         self.channel = self.channel = self._set_up_channel(secure)
-        self.stub = bidirectional_pb2_grpc.BidirectionalStub(self.channel)
+        self.stub = pb2_grpc_bidir.BidirectionalStub(self.channel)
 
     def _set_up_channel(self, secure=False):
         if secure:
             try:
-                cert_path = "server.crt"
+                cert_path = "./certs/server.crt"
 
                 # Load the trusted server certificate (CA certificate)
                 with open(cert_path, 'rb') as f:
@@ -98,7 +97,7 @@ class BidirectionalClient:
         """
         responses = self.stub.GetServerResponse(self.generate_messages())
         for response in responses:
-            log(f"Hello from the server received your {response.message}\n", color=Fore.GREEN)
+            logger.log(f"Hello from the server received your {response.message}\n", color=Fore.GREEN)
 
     def generate_messages(self):
         messages = [
@@ -110,52 +109,19 @@ class BidirectionalClient:
         ]
         for msg in messages:
             #print("Hello Server Sending you the %s" % msg.message)
-            log(f"Hello Server, sending you the {msg.message}\n", color=Fore.YELLOW)
+            logger.log(f"Hello Server, sending you the {msg.message}\n", color=Fore.YELLOW)
             yield msg
 
     def make_message(self, message):
-        return bidirectional_pb2.Message(
+        return bidir.Message(
             message=message
         )
 
 
-def log(message, color=Fore.WHITE):
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"{color}[{timestamp}] {message}{Style.RESET_ALL}")
-
-def get_cmd_args():
-    # Argument parsing
-    parser = argparse.ArgumentParser(description="gRPC Unary Client with Looping and Delay Options")
-    parser.add_argument("--targets", type=str, required=True,
-                        help="Comma-separated list of server addresses (e.g., localhost:50051,localhost:50052)")
-    parser.add_argument("--repeat", type=int, default=1,
-                        help="Number of times to loop through all targets (0 for infinite)")
-    parser.add_argument("--delay-mode", choices=["fixed", "random"], default="fixed",
-                        help="Delay mode between requests: 'fixed' or 'random'")
-    parser.add_argument("--delay", type=float, default=1.0,
-                        help="Fixed delay in seconds (used if delay-mode is 'fixed')")
-    parser.add_argument("--random-min", type=float, default=0.5,
-                        help="Minimum random delay in seconds (used if delay-mode is 'random')")
-    parser.add_argument("--random-max", type=float, default=2.0,
-                        help="Maximum random delay in seconds (used if delay-mode is 'random')")
-    parser.add_argument("--type", choices=["unary", "bidirectional"], default="unary",
-                        help="Type of gRPC service to use: 'unary' or 'bidirectional'")
-    parser.add_argument("--secure", action="store_true", required=False, 
-                        help="Use secure gRPC channel with SSL/TLS")
-    args = parser.parse_args()
-
-    # Validate delay values
-    if args.delay_mode == "fixed" and not (0 <= args.delay <= 600):
-        log("Fixed delay must be between 0 and 600 seconds.", color=Fore.RED)
-        exit(1)
-    if args.delay_mode == "random" and args.random_min > args.random_max:
-        log("Random delay minimum cannot be greater than maximum.", color=Fore.RED)
-        exit(1)
-    
-    return args
-
 def main():
-    args = get_cmd_args()
+    cs = ClientConfig( argparse.ArgumentParser(description="gRPC Client"), logger )
+    args = cs.get_args()
+
     targets = [t.strip() for t in args.targets.split(",")]
     message = "Hello Server you there?"
 
@@ -163,40 +129,38 @@ def main():
         iteration = 0
         while True:
             iteration += 1
-            log(f"Starting iteration {iteration}", color=Fore.CYAN)
+            logger.log(f"Starting iteration {iteration}", color=Fore.CYAN)
 
             for target in targets:
-                log(f"Trying to connect to {target}...")
+                logger.info(f"Trying to connect to {target}...")
 
                 try:
                     if args.type == "unary":
                         client = UnaryClient(target, args.secure)
                         response = client.get_url(message)
-                        log(f"Response from {target}: {response}", color=Fore.GREEN)
+                        logger.log(f"Response from {target}: {response}", color=Fore.GREEN)
                     elif args.type == "bidirectional":
                         client = BidirectionalClient(target, args.secure)
                         client.run()
-                        log(f"Completed bidirectional communication with {target}", color=Fore.GREEN)
+                        logger.log(f"Completed bidirectional communication with {target}", color=Fore.GREEN)
                     else:
-                        log(f"Unknown service type: {args.service_type}", color=Fore.RED)
+                        logger.log(f"Unknown service type: {args.service_type}", color=Fore.RED)
 
                 except Exception as e:
-                    log(f"Failed to connect to {target}: {e}", color=Fore.RED)
+                    logger.log(f"Failed to connect to {target}: {e}", color=Fore.RED)
 
                 if args.delay_mode == "fixed":
                     time.sleep(args.delay)
                 else:
                     delay = random.uniform(args.random_min, args.random_max)
-                    log(f"Sleeping for {delay:.2f} seconds", color=Fore.YELLOW)
+                    logger.log(f"Sleeping for {delay:.2f} seconds", color=Fore.YELLOW)
                     time.sleep(delay)
 
             if args.repeat > 0 and iteration >= args.repeat:
                 break
     except KeyboardInterrupt:
-        log("Client interrupted by user. Exiting...", color=Fore.MAGENTA)
+        logger.log("Client interrupted by user. Exiting...", color=Fore.MAGENTA)
 
 
 if __name__ == '__main__':
-    # Initialize colorama
-    init(autoreset=True)
     main()
