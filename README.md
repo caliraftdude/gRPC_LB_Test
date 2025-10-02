@@ -505,6 +505,70 @@ For issues, questions, or suggestions, please:
 *Last Updated: [Current Date]*
 *Version: 1.0.0*
 
+## Certificates and keying hotsheet
+Generating a certificate with Subject Alternative Names (SANs) requires specifying extensions, which is impossible to do directly on the command line for a Certificate Signing Request (CSR). The recommended approach is to use a configuration file to define the SANs for the certificate. 
+The steps below will guide you through creating a simple Certificate Authority (CA) and then issuing a server certificate with multiple SANs, all using separate, non-conflicting configuration files.
+
+### Create a simple CA
+- First, create a self-signed root CA certificate and its corresponding private key. This CA will be used to sign your server certificate later. 
+#### Create the CA private key
+Generate an RSA private key for the CA, encrypted with AES256 and protected by a strong passphrase. 
+```console
+openssl genrsa -aes256 -out ca.key 4096
+```
+Create the self-signed root CA certificate 
+Use the private key to create a self-signed root certificate. The -x509 flag indicates that you are creating a self-signed certificate, not a CSR. 
+sh
+openssl req -new -x509 -sha256 -days 3650 -key ca.key -out ca.crt
+You will be prompted to enter your passphrase and the CA's distinguished name (DN). For the "Common Name," enter a unique identifier for your CA, such as "My Root CA". 
+Step 2: Create a server certificate with SANs 
+Next, generate a private key and a Certificate Signing Request (CSR) for your server. Instead of modifying the main openssl.cnf file, you will create a temporary config file for the SANs. 
+Create the server private key 
+Generate an RSA private key for the server. For convenience, this example does not use a password (-nodes). 
+sh
+openssl genrsa -out server.key 4096
+Create the SAN configuration file 
+Create a text file named san.conf to specify the subject and the Subject Alternative Names. This file replaces the need to manually modify the system's openssl.cnf. 
+san.conf
+[req]
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+prompt = no
+
+[req_distinguished_name]
+C = US
+ST = California
+L = San Francisco
+O = My Company
+OU = My Department
+CN = my.primary.com
+
+[v3_req]
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = my.primary.com
+DNS.2 = www.my.primary.com
+DNS.3 = *.other.domain.com
+IP.1 = 192.0.2.1
+Create the server CSR 
+Generate the CSR using the san.conf file you just created. 
+sh
+openssl req -new -key server.key -sha256 -out server.csr -config san.conf
+Step 3: Sign the server certificate 
+Finally, use your CA to sign the server's CSR. The extensions from san.conf will be included in the final certificate. 
+sh
+openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 365 -sha256 -extfile san.conf -extensions v3_req
+Step 4: Verify the certificate 
+You can verify that the server certificate was correctly created with the SANs by printing its contents. 
+sh
+openssl x509 -in server.crt -text -noout
+The output should include a section similar to this, confirming the SAN entries: 
+X509v3 Subject Alternative Name: 
+    DNS:my.primary.com, DNS:www.my.primary.com, DNS:*.other.domain.com, IP Address:192.0.2.1
+
 
 ### references
 1. https://www.velotio.com/engineering-blog/grpc-implementation-using-python
