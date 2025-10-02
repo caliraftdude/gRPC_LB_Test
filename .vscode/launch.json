@@ -6,14 +6,21 @@
     "configurations": [
 
         {
-            "name": "Python Debugger: Current File",
+            "name": "Current File debug - args",
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "args": ["--targets", "localhost",
-                     "--repeat", "5",
+                     "--repeat", "10",
                      "--type", "unary",
                      "--secure",],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Current File debug",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
             "console": "integratedTerminal"
         },
         {
