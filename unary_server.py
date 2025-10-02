@@ -1,8 +1,10 @@
+import os
 import grpc
 import socket
 import argparse
 from concurrent import futures
 from colorama import Fore
+from typing import Any
 
 from logger import ColorLogger
 from config import ServerConfig
@@ -14,20 +16,17 @@ logger = ColorLogger("gRPC Server")
 
 class BidirectionalService(pb2_grpc_bidir.BidirectionalServicer):
 
-    def GetServerResponse(self, request_iterator, context):
+    def GetServerResponse(self, request_iterator:Any, context):
         for message in request_iterator:
             yield message
 
+
 class UnaryService(pb2_grpc.UnaryServicer):
 
-    def __init__(self, *args, **kwargs):
-        pass
-
-    def GetServerResponse(self, request, context):
-
+    def GetServerResponse(self, request:Any, context:Any):
         # get the string from the incoming request, and svr identity
         message = request.message
-        hostname, peer_ip = get_server_identity(context)
+        hostname, peer_ip = self._get_server_identity(context)
 
         # create the response message
         result = f"Hello from {hostname} at {peer_ip}!  Received your message: {message}"
@@ -40,27 +39,48 @@ class UnaryService(pb2_grpc.UnaryServicer):
         return pb2.MessageResponse(**result)
     
 
-def get_server_identity(request_context):
-    hostname = socket.gethostname()
-    peer_info = request_context.peer()  # e.g., 'ipv4:127.0.0.1:12345'
-    server_ip = peer_info.split(":")[1] if "ipv4" in peer_info else "unknown" # Extract IP from gRPC peer string
-    return hostname, server_ip
+    def _get_server_identity(self, request_context: Any):
+        hostname = socket.gethostname()
+        peer_info = request_context.peer()  # e.g., 'ipv4:127.0.0.1:12345'
+        server_ip = peer_info.split(":")[1] if "ipv4" in peer_info else "unknown" # Extract IP from gRPC peer string
+        return hostname, server_ip
+
+
+def get_cert_and_key() -> tuple[bytes, bytes]:
+    try:
+        # Allow the paths to be set with env vars, and default if not
+        cert_path = os.getenv("GRPC_CERT_PATH", "./certs/server.crt")
+        key_path = os.getenv("GRPC_KEY_PATH", "./certs/server.key" )
+        
+        # Load server private key and certificate
+        with open(key_path, 'rb') as f:
+            private_key = f.read()
+        with open(cert_path, 'rb') as f:
+            certificate_chain = f.read()    
+
+    except FileNotFoundError:
+        logger.error(f"The file {cert_path} was not found.")
+    except PermissionError:
+        logger.error(f"You do not have permission to read {cert_path}.")
+    except OSError as e:
+        logger.error(f"An unexpected OS error occurred: {e}")
+
+    return private_key, certificate_chain
 
 
 def main():
-    
+    # Get the config, get some arguments, and create the server   
     sc = ServerConfig( argparse.ArgumentParser(description="gRPC Server"), logger )
-    ip, port, service_type = sc.get_args()
+    ip, port, type = sc.get_args()
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
 
-    # Setup server and thread pool
-    if service_type == "unary":
+    # Create the correct service on the server
+    if type == "unary":
         logger.info("Starting Unary gRPC Server...")
-        server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
         pb2_grpc.add_UnaryServicer_to_server(UnaryService(), server)
 
-    elif service_type == "bidirectional":
+    elif type == "bidirectional":
         logger.info("Starting Bidirectional gRPC Server...")
-        server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
         pb2_grpc_bidir.add_BidirectionalServicer_to_server(BidirectionalService(), server)
 
     else:
@@ -68,30 +88,16 @@ def main():
 
     # Bind to address and port - use env vars, cmd args or defaults
     if sc.args.secure:
-        try:
-            cert_path = "./certs/server.crt"
-            key_path = "./certs/server.key" 
-            
-            # Load server private key and certificate
-            with open(key_path, 'rb') as f:
-                private_key = f.read()
-            with open(cert_path, 'rb') as f:
-                certificate_chain = f.read()    
+        # Get key and certificate
+        private_key, certificate_chain = get_cert_and_key() 
 
-            # Create server credentials
-            server_credentials = grpc.ssl_server_credentials(private_key_certificate_chain_pairs=[(private_key, certificate_chain)] )
+        # Create server credentials
+        server_credentials = grpc.ssl_server_credentials(private_key_certificate_chain_pairs=[(private_key, certificate_chain)] )
 
-            # Create a secure server
-            server.add_secure_port(f"{ip}:{port}", server_credentials)
-            logger.info(f"Created secure server on {ip}:{port}...")
-
-        except FileNotFoundError:
-            logger.error(f"The file {cert_path} was not found.")
-        except PermissionError:
-            logger.error(f"You do not have permission to read {cert_path}.")
-        except OSError as e:
-            logger.error(f"An unexpected OS error occurred: {e}")
-        
+        # Create a secure server
+        server.add_secure_port(f"{ip}:{port}", server_credentials)
+        logger.info(f"Created secure server on {ip}:{port}...")
+    
     else:
         server.add_insecure_port(f"{ip}:{port}")
         logger.info(f"Created insecure server on {ip}:{port}...")
@@ -105,6 +111,9 @@ def main():
         server.wait_for_termination()
     except KeyboardInterrupt:
         logger.info("Server shutting down...")
+    finally:
+        server.stop(0)
+        logger.info("Server stopped.")
 
 
 if __name__ == '__main__':

@@ -11,7 +11,7 @@
             "request": "launch",
             "program": "${file}",
             "args": ["--targets", "localhost",
-                     "--repeat", "5",
+                     "--repeat", "10",
                      "--type", "unary",
                      "--secure",],
             "console": "integratedTerminal"

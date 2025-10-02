@@ -19,6 +19,7 @@ class BaseConfig:
         log.info("BaseConfig init")
         parser.add_argument("--type", type=str, choices=["unary", "bidirectional"], default="unary", help="Type of gRPC service to run: 'unary' or 'bidirectional'")
         parser.add_argument("--secure", action="store_true", required=False, help="Use secure gRPC channel with SSL/TLS")
+        parser.add_argument("--port", type=int, default=50051, help="Port to bind to (server) or connect on (client)")
 
     def parse_cmd_args(self, parser: ArgumentParser) -> Any:
         try:
@@ -43,17 +44,17 @@ class ServerConfig(BaseConfig):
         log.info("ServerConfig init")
 
         parser.add_argument("--ip", type=str, help="IP address to bind to")
-        parser.add_argument("--port", type=int, help="Port to bind to")
+
 
         self.args = self.parse_cmd_args(parser)
 
         self.ip = self.args.ip or os.getenv("GRPC_SERVER_IP", "0.0.0.0")
         self.port = self.args.port or int(os.getenv("GRPC_SERVER_PORT", "50051"))
-        self.service_type = self.args.type or os.getenv("GRPC_SERVICE_TYPE", "unary").lower()
+        self.type = self.args.type or os.getenv("GRPC_SERVICE_TYPE", "unary").lower()
 
 
     def get_args(self) -> tuple[str, str, str]:
-        return self.ip, self.port, self.service_type
+        return self.ip, self.port, self.type
 
 
 class ClientConfig(BaseConfig):
@@ -70,6 +71,9 @@ class ClientConfig(BaseConfig):
 
         self.args = self.parse_cmd_args(parser)
 
+        # Check for port env var
+        self.port = self.args.port or int(os.getenv("GRPC_CLIENT_PORT", "50051"))
+        
         # Validate delay values
         if self.args.delay_mode == "fixed" and not (0 <= self.args.delay <= 600):
             log.error("Fixed delay must be between 0 and 600 seconds.", color=Fore.RED)
