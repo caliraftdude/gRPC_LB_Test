@@ -117,39 +117,39 @@ def main():
     try:
         iteration = 0
 
+        if args.type == "unary":
+            client = UnaryClient(targets[0], args.port, args.secure)
+
+        elif args.type == "bidirectional":
+            client = BidirectionalClient(targets[0], args.port, args.secure)
+         
+        else:
+            logger.log(f"Unknown service type: {args.service_type}", color=Fore.RED)
 
 
         while True:
             iteration += 1
             logger.log(f"Starting iteration {iteration}", color=Fore.CYAN)
 
-            for target in targets:
-                logger.info(f"Trying to connect to {target}...")
+            # for target in targets:
+            #     logger.info(f"Trying to connect to {target}...")
 
-                try:
-                    if args.type == "unary":
-                        client = UnaryClient(target, args.port, args.secure)
-                        client.run(target)
+            try:
+                client.run(targets[0])
 
-                    elif args.type == "bidirectional":
-                        client = BidirectionalClient(target, args.port, args.secure)
-                        client.run()
-                        
-                    else:
-                        logger.log(f"Unknown service type: {args.service_type}", color=Fore.RED)
+            except Exception as e:
+                logger.log(f"Failed to connect to {targets[0]}: {e}", color=Fore.RED)
 
-                except Exception as e:
-                    logger.log(f"Failed to connect to {target}: {e}", color=Fore.RED)
-
-                if args.delay_mode == "fixed":
-                    time.sleep(args.delay)
-                else:
-                    delay = random.uniform(args.random_min, args.random_max)
-                    logger.log(f"Sleeping for {delay:.2f} seconds", color=Fore.YELLOW)
-                    time.sleep(delay)
+            if args.delay_mode == "fixed":
+                time.sleep(args.delay)
+            else:
+                delay = random.uniform(args.random_min, args.random_max)
+                logger.log(f"Sleeping for {delay:.2f} seconds", color=Fore.YELLOW)
+                time.sleep(delay)
 
             if args.repeat > 0 and iteration >= args.repeat:
                 break
+
     except KeyboardInterrupt:
         logger.log("Client interrupted by user. Exiting...", color=Fore.MAGENTA)
 
