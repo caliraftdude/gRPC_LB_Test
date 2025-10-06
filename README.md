@@ -587,5 +587,11 @@ X509v3 Subject Alternative Name:
     DNS:my.primary.com, DNS:www.my.primary.com, DNS:*.other.domain.com, IP Address:192.0.2.1
 ```
 
+You can also verify the certificate and key with the following commands:
+```consoel
+openssl x509 -noout -modulus -in server.crt | openssl md5
+openssl rsa -noout -modulus -in server.key | openssl md5
+```
+
 ### references
 1. https://www.velotio.com/engineering-blog/grpc-implementation-using-python

@@ -27,8 +27,8 @@
             "name": "Server Debug",
             "type": "debugpy",
             "request": "launch",
-            "program": "unary_server.py",
-            "args": ["--type", "bidirectional",
+            "program": "server.py",
+            "args": ["--type", "unary",
                      "--secure",],
             "console": "integratedTerminal"
         }

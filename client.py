@@ -56,16 +56,19 @@ class UnaryClient(BaseClient):
     def __init__(self, host:str, port:int = 50051, secure:bool = False):
         super().__init__(host, port, secure)
         self.stub = self._get_stub()
+        self.message:str =  "Hello Server you there?"
 
     def _get_stub(self):
         return pb2_grpc.UnaryStub(self.channel)
 
-    def get_url(self, message:Any):
+    def run(self, target:Any):
         """
         Client function to call the rpc for GetServerResponse
         """
-        request = pb2.Message(message=message)
-        return self.stub.GetServerResponse(request)
+        request = pb2.Message(message=self.message)
+        response = self.stub.GetServerResponse(request)
+
+        logger.log(f"Response from {target}: {response.message}", color=Fore.GREEN)
     
 
 class BidirectionalClient:
@@ -76,7 +79,7 @@ class BidirectionalClient:
     def _get_stub(self):
         return pb2_grpc_bidir.BidirectionalStub(self.channel)
 
-    def run(self):
+    def run(self, target:Any):
         """
         Client function to call the rpc for GetServerResponse
         """
@@ -84,6 +87,8 @@ class BidirectionalClient:
 
         for response in responses:
             logger.log(f"Hello from the server received your {response.message}\n", color=Fore.GREEN)
+
+        logger.log(f"Completed bidirectional communication with {target}", color=Fore.GREEN)
 
     def generate_messages(self):
         messages = [
@@ -98,6 +103,7 @@ class BidirectionalClient:
             logger.log(f"Hello Server, sending you the {msg.message}\n", color=Fore.YELLOW)
             yield msg
 
+        
     def make_message(self, message:Any):
         return bidir.Message( message=message )
 
@@ -107,10 +113,12 @@ def main():
     args = cs.get_args()
 
     targets = [t.strip() for t in args.targets.split(",")]
-    message = "Hello Server you there?"
 
     try:
         iteration = 0
+
+
+
         while True:
             iteration += 1
             logger.log(f"Starting iteration {iteration}", color=Fore.CYAN)
@@ -121,12 +129,12 @@ def main():
                 try:
                     if args.type == "unary":
                         client = UnaryClient(target, args.port, args.secure)
-                        response = client.get_url(message)
-                        logger.log(f"Response from {target}: {response.message}", color=Fore.GREEN)
+                        client.run(target)
+
                     elif args.type == "bidirectional":
                         client = BidirectionalClient(target, args.port, args.secure)
                         client.run()
-                        logger.log(f"Completed bidirectional communication with {target}", color=Fore.GREEN)
+                        
                     else:
                         logger.log(f"Unknown service type: {args.service_type}", color=Fore.RED)
 
