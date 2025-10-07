@@ -62,12 +62,13 @@ class ClientConfig(BaseConfig):
         super().__init__( parser, log )
         log.info("ClientConfig init")
 
-        parser.add_argument("--targets", type=str, required=True, help="Comma-separated list of server addresses (e.g., localhost:50051,localhost:50052)")
+        parser.add_argument("--targets", type=str, required=True, help="Comma-separated list of server addresses (e.g., localhost:50051,localhost:50052).  If using the rebuild-tcp-each-message, only the first address:port is used.")
         parser.add_argument("--repeat", type=int, default=1, help="Number of times to loop through all targets (0 for infinite)")
         parser.add_argument("--delay-mode", choices=["fixed", "random"], default="fixed", help="Delay mode between requests: 'fixed' or 'random'")
         parser.add_argument("--delay", type=float, default=1.0, help="Fixed delay in seconds (used if delay-mode is 'fixed')")
         parser.add_argument("--random-min", type=float, default=0.5, help="Minimum random delay in seconds (used if delay-mode is 'random')")
         parser.add_argument("--random-max", type=float, default=2.0, help="Maximum random delay in seconds (used if delay-mode is 'random')")
+        parser.add_argument("--rebuild-tcp-each-message", action="store_true", required=False, help="Tear down and rebuild connection for each message or message stream")
 
         self.args = self.parse_cmd_args(parser)
 

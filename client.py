@@ -49,7 +49,11 @@ class BaseClient:
 
         def _get_stub(self):
             # Ensure this gets written in inherited classes
-            raise NotImplemented
+            raise NotImplementedError
+        
+        def run(self, target:Any):
+            # Execute whatever task the client does
+            raise NotImplementedError
 
 
 class UnaryClient(BaseClient):
@@ -108,38 +112,55 @@ class BidirectionalClient:
         return bidir.Message( message=message )
 
 
+def build_client(args:Any, target:Any) -> BaseClient:
+    if args.type == "unary":
+        return UnaryClient(target, args.port, args.secure)
+
+    elif args.type == "bidirectional":
+        return BidirectionalClient(target, args.port, args.secure)
+        
+    else:
+        logger.log(f"Unknown service type: {args.service_type}", color=Fore.RED)
+        raise NotImplementedError
+
+def message_target(client:BaseClient, target:Any):
+    try:
+        logger.info(f"Trying to connect to {target}...")
+        client.run(target)
+
+    except Exception as e:
+        logger.log(f"Failed to connect to {target}: {e}", color=Fore.RED)  
+
+
 def main():
     cs = ClientConfig( argparse.ArgumentParser(description="gRPC Client"), logger )
     args = cs.get_args()
 
     targets = [t.strip() for t in args.targets.split(",")]
+    client:BaseClient = None
 
     try:
         iteration = 0
 
-        if args.type == "unary":
-            client = UnaryClient(targets[0], args.port, args.secure)
-
-        elif args.type == "bidirectional":
-            client = BidirectionalClient(targets[0], args.port, args.secure)
-         
-        else:
-            logger.log(f"Unknown service type: {args.service_type}", color=Fore.RED)
-
+        # If we only build the connection once, do it outside the test loop.
+        if not args.rebuild_tcp_each_message:
+            client:BaseClient = build_client(args, targets[0])
 
         while True:
             iteration += 1
             logger.log(f"Starting iteration {iteration}", color=Fore.CYAN)
 
-            # for target in targets:
-            #     logger.info(f"Trying to connect to {target}...")
-
-            try:
+            # If not rebuilding each time, only use first target and exec client.  Otherwise, the client
+            # needs to get built each loop and for each target within each loop. 
+            if not args.rebuild_tcp_each_message:
                 client.run(targets[0])
 
-            except Exception as e:
-                logger.log(f"Failed to connect to {targets[0]}: {e}", color=Fore.RED)
+            else:
+                for target in targets:
+                    client = build_client(args, target)
+                    client.run(target)
 
+            # Sort out delays if necessary
             if args.delay_mode == "fixed":
                 time.sleep(args.delay)
             else:
@@ -147,6 +168,7 @@ def main():
                 logger.log(f"Sleeping for {delay:.2f} seconds", color=Fore.YELLOW)
                 time.sleep(delay)
 
+            # Exit condition if repeating
             if args.repeat > 0 and iteration >= args.repeat:
                 break
 
