@@ -27,9 +27,16 @@ class BaseConfig:
             return args
         
         except SystemExit as e:
-            if e.code == 1:  # general error
+            # Code 0 is --help.. gracefully exit
+            if e.code == 0:
+                exit(0)
+
+            # General error    
+            if e.code == 1:
                 self.log.error(f"General error while parsing: {e}")
-            elif e.code == 2: #parsing error
+
+            # Parsing error
+            elif e.code == 2:
                 self.log.error(f"Argument parsing failed: {e}")
 
             raise ConfigGeneralException
@@ -45,19 +52,8 @@ class ServerConfig(BaseConfig):
 
         parser.add_argument("--ip", type=str, help="IP address to bind to")
 
-        # Handle the case where --help or an argument error occurs
-        try:
-            self.args = self.parse_cmd_args(parser)
+        self.args = self.parse_cmd_args(parser)
         
-        except SystemExit as e:
-            # Check to see if exit is because of --help (code 0)
-            if e.code == 0:
-                exit(0)
-            else:
-                log.error("Fatal error while parsing arguments.")
-                exit(-1) 
-
-
         self.ip = self.args.ip or os.getenv("GRPC_SERVER_IP", "0.0.0.0")
         self.port = self.args.port or int(os.getenv("GRPC_SERVER_PORT", "50051"))
         self.type = self.args.type or os.getenv("GRPC_SERVICE_TYPE", "unary").lower()
@@ -80,19 +76,8 @@ class ClientConfig(BaseConfig):
         parser.add_argument("--random-max", type=float, default=2.0, help="Maximum random delay in seconds (used if delay-mode is 'random')")
         parser.add_argument("--rebuild-tcp-each-message", action="store_true", required=False, help="Tear down and rebuild connection for each message or message stream")
 
-
-        # Handle the case where --help or an argument error occurs
-        try:
-            self.args = self.parse_cmd_args(parser)
+        self.args = self.parse_cmd_args(parser)
         
-        except SystemExit as e:
-            # Check to see if exit is because of --help (code 0)
-            if e.code == 0:
-                exit(0)
-            else:
-                log.error("Fatal error while parsing arguments.")
-                exit(-1) 
-
         # Check for port env var
         self.port = self.args.port or int(os.getenv("GRPC_CLIENT_PORT", "50051"))
         
