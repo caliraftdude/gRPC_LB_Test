@@ -45,8 +45,18 @@ class ServerConfig(BaseConfig):
 
         parser.add_argument("--ip", type=str, help="IP address to bind to")
 
+        # Handle the case where --help or an argument error occurs
+        try:
+            self.args = self.parse_cmd_args(parser)
+        
+        except SystemExit as e:
+            # Check to see if exit is because of --help (code 0)
+            if e.code == 0:
+                exit(0)
+            else:
+                log.error("Fatal error while parsing arguments.")
+                exit(-1) 
 
-        self.args = self.parse_cmd_args(parser)
 
         self.ip = self.args.ip or os.getenv("GRPC_SERVER_IP", "0.0.0.0")
         self.port = self.args.port or int(os.getenv("GRPC_SERVER_PORT", "50051"))
@@ -70,7 +80,18 @@ class ClientConfig(BaseConfig):
         parser.add_argument("--random-max", type=float, default=2.0, help="Maximum random delay in seconds (used if delay-mode is 'random')")
         parser.add_argument("--rebuild-tcp-each-message", action="store_true", required=False, help="Tear down and rebuild connection for each message or message stream")
 
-        self.args = self.parse_cmd_args(parser)
+
+        # Handle the case where --help or an argument error occurs
+        try:
+            self.args = self.parse_cmd_args(parser)
+        
+        except SystemExit as e:
+            # Check to see if exit is because of --help (code 0)
+            if e.code == 0:
+                exit(0)
+            else:
+                log.error("Fatal error while parsing arguments.")
+                exit(-1) 
 
         # Check for port env var
         self.port = self.args.port or int(os.getenv("GRPC_CLIENT_PORT", "50051"))
