@@ -1,7 +1,6 @@
 
 import os
 import argparse
-import logging
 from argparse import ArgumentParser
 from colorama import Fore
 from typing import Any
@@ -59,7 +58,7 @@ class ServerConfig(BaseConfig):
         self.type = self.args.type or os.getenv("GRPC_SERVICE_TYPE", "unary").lower()
 
 
-    def get_args(self) -> tuple[str, str, str]:
+    def get_args(self) -> tuple[str, int, str]:
         return self.ip, self.port, self.type
 
 
@@ -83,10 +82,10 @@ class ClientConfig(BaseConfig):
         
         # Validate delay values
         if self.args.delay_mode == "fixed" and not (0 <= self.args.delay <= 600):
-            log.error("Fixed delay must be between 0 and 600 seconds.", color=Fore.RED)
+            log.error("Fixed delay must be between 0 and 600 seconds.")
             exit(1)
         if self.args.delay_mode == "random" and self.args.random_min > self.args.random_max:
-            log.error("Random delay minimum cannot be greater than maximum.", color=Fore.RED)
+            log.error("Random delay minimum cannot be greater than maximum.")
             exit(1)
       
     

@@ -4,16 +4,20 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-
         {
             "name": "Current File debug - args",
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
-            "args": ["--targets", "localhost",
-                     "--repeat", "10",
-                     "--type", "unary",
-                     "--secure",],
+            "args": [
+                "--targets",
+                "localhost",
+                "--repeat",
+                "10",
+                "--type",
+                "unary",
+                "--secure",
+            ],
             "console": "integratedTerminal"
         },
         {
@@ -21,7 +25,9 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
-            "args": ["--help"],
+            "args": [
+                "--help"
+            ],
             "console": "integratedTerminal"
         },
         {
@@ -29,8 +35,11 @@
             "type": "debugpy",
             "request": "launch",
             "program": "server.py",
-            "args": ["--type", "unary",
-                     "--secure",],
+            "args": [
+                "--type",
+                "unary",
+                "--secure",
+            ],
             "console": "integratedTerminal"
         }
     ]
